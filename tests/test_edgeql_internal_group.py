@@ -27,8 +27,8 @@ from edb.tools import test
 
 
 @test.not_implemented('GROUP statement is not yet implemented')
-class TestEdgeQLGroup(tb.QueryTestCase):
-    '''These tests are focused on using GROUP statement.'''
+class TestEdgeQLGroupInternal(tb.QueryTestCase):
+    '''These tests are focused on using the internal GROUP statement.'''
 
     SCHEMA = os.path.join(os.path.dirname(__file__), 'schemas',
                           'issues.esdl')
@@ -42,7 +42,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_simple_01(self):
         await self.assert_query_result(
             r'''
-                GROUP User
+                DETACHED GROUP User
                 USING _ := User.name
                 BY _
                 INTO User
@@ -54,7 +54,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_simple_02(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue := Issue
+                DETACHED GROUP Issue := Issue
                 # time_estimate is {} on some Issues,
                 # but that's a valid grouping
                 USING _ := Issue.time_estimate
@@ -69,7 +69,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_simple_03(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                DETACHED GROUP Issue
                 USING _ := Issue.time_estimate
                 BY _
                 INTO Issue
@@ -82,7 +82,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_simple_04(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                DETACHED GROUP Issue
                 USING _ := Issue.time_estimate
                 BY _
                 INTO Issue
@@ -96,7 +96,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_simple_05(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                DETACHED GROUP Issue
                 USING _ := Issue.time_estimate
                 BY _
                 INTO Issue
@@ -110,7 +110,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_simple_06(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                DETACHED GROUP Issue
                 USING _ := Issue.time_estimate
                 BY _
                 INTO Issue
@@ -124,14 +124,16 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_by_01(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING B :=  Issue.status.name
                 BY B
                 INTO Issue
                 UNION (
                     sum := sum(<int64>Issue.number),
                     status := B,
-                ) ORDER BY B;
+                )
+                ) ORDER BY .status;
             """,
             [
                 {
@@ -148,18 +150,18 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_by_02(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING B :=  Issue.status.name
                 BY B
                 INTO Issue
-                UNION _ := (
+                UNION (
                     sum := sum(<int64>Issue.number),
                     status := B,
                 )
-                FILTER
-                    _.sum > 5
-                ORDER BY
-                    B;
+                )
+                FILTER sum > 5
+                ORDER BY .status;
             """,
             [{
                 'status': 'Closed',
@@ -170,31 +172,32 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_result_alias_01(self):
         await self.assert_query_result(
             r'''
-                # re-use the same "_" alias in nested scope
-                GROUP Issue
+                SELECT _ := (
+                DETACHED GROUP Issue
                 USING _ :=  Issue.time_estimate
                 BY _
                 INTO Issue
-                UNION _ := (
+                UNION (
                     count := count(Issue.status.id),
                     te := array_agg(DISTINCT Issue.time_estimate > 0),
-                ) ORDER BY
-                    _.te;
+                )
+                ) ORDER BY _.te;
             ''',
             [{'count': 3, 'te': []}, {'count': 1, 'te': [True]}]
         )
 
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING _ :=  Issue.time_estimate
                 BY _
                 INTO Issue
                 UNION _ := (
                     count := count(Issue.status.id),
                     te := array_agg(DISTINCT Issue.time_estimate > 0),
-                ) ORDER BY
-                    _.te DESC;
+                )
+                ) ORDER BY _.te DESC;
             ''',
             [{'count': 1, 'te': [True]}, {'count': 3, 'te': []}],
         )
@@ -202,17 +205,17 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_result_alias_02(self):
         await self.assert_query_result(
             r'''
-                # re-use the same "_" alias in nested scope
-                GROUP Issue
+                SELECT _ := (
+                DETACHED GROUP Issue
                 USING _ :=  Issue.time_estimate
                 BY _
                 INTO Issue
-                UNION _ := (
+                UNION (
                     count := count(Issue.status.id),
                     # confusing, but legal usage of '_' to refer to BY
                     # (this is comparable to SELECT Issue := count(Issue))
                     te := array_agg(_ > 0),
-                ) ORDER BY
+                )) ORDER BY
                     _.te DESC;
             ''',
             [{'count': 1, 'te': [True]}, {'count': 3, 'te': []}],
@@ -226,16 +229,17 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                         name := User.name,
                         issues := array_agg(
                             (
-                                GROUP UserIssue := User.<owner[IS Issue]
+                                SELECT
+                                (DETACHED GROUP
+                                   UserIssue := User.<owner[IS Issue]
                                 USING B :=  UserIssue.status.name
                                 BY B
                                 INTO UserIssue
                                 UNION (
                                     status := B,
                                     count := count(UserIssue),
-                                )
-                                ORDER BY
-                                    B
+                                ))
+                                ORDER BY .status
                             )
                         )
                     )
@@ -268,7 +272,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_returning_01(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                DETACHED GROUP Issue
                 USING _ :=  Issue.time_estimate
                 BY _
                 INTO Issue
@@ -283,14 +287,15 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_returning_02(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                SELECT _ := (
+                DETACHED GROUP Issue
                 USING B := Issue.time_estimate
                 BY B
                 INTO Issue
                 # No reason to restrict the above example to doing a
                 # UNION of singletons.
-                UNION _ := {42, count(Issue)}
-                ORDER BY _;
+                UNION {42, count(Issue)}
+                ) ORDER BY _;
             ''',
             [1, 3, 42, 42],
         )
@@ -298,7 +303,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_returning_03(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING B := Issue.status
                 BY B
                 INTO Issue
@@ -309,7 +315,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     name,
                     nums := Issue.number
                 }
-                ORDER BY B.name;
+                ) ORDER BY .name;
             ''',
             [
                 {
@@ -326,7 +332,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_returning_04(self):
         await self.assert_query_result(
             r'''
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING _ := Issue.status
                 BY _
                 INTO Issue
@@ -343,7 +350,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     # necessarily optimal
                     FILTER Status = Issue.status
                 )
-                ORDER BY Status.name;
+                ) ORDER BY .name;
             ''',
             [
                 {
@@ -363,13 +370,14 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                 # a trivial group that is actually not doing anything
                 # different from a plain SELECT
                 WITH MODULE cards
-                GROUP Card
+                SELECT _ := (
+                DETACHED GROUP Card
                 USING _ :=  Card.element
                 BY _
                 INTO Card
                 UNION Card.name
-                ORDER BY
-                    Card.name;
+                )
+                ORDER BY _;
             ''',
             [
                 'Bog monster',
@@ -390,13 +398,14 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                 # a trivial group that is actually not doing anything
                 # different from a plain SELECT
                 WITH MODULE cards
-                GROUP Card
+                SELECT (
+                DETACHED GROUP Card
                 USING _ :=  Card.element
                 BY _
                 INTO Card
                 UNION Card {name}
-                ORDER BY
-                    Card.name;
+                ) ORDER BY
+                    .name;
             ''',
             [
                 {'name': 'Bog monster'},
@@ -424,7 +433,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     C2 := Card,
                     ELEMENTAL := (
                         # group cards into arrays by element
-                        GROUP Card
+                        DETACHED GROUP Card
                         USING _ :=  Card.element
                         BY _
                         INTO Card
@@ -511,7 +520,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                 WITH
                     MODULE cards,
                     ELEMENTAL := (
-                        GROUP Card
+                        DETACHED GROUP Card
                         USING _ :=  Card.element
                         BY _
                         INTO Card
@@ -525,7 +534,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                                 name,
                                 cost,
                                 members := (
-                                    SELECT C2 := array_unpack(X)
+                                    SELECT C2 := DISTINCT array_unpack(X)
                                     ORDER BY C2.cost
                                 )
                             }
@@ -587,16 +596,17 @@ class TestEdgeQLGroup(tb.QueryTestCase):
         )
 
     async def test_edgeql_group_returning_09(self):
+        # XXX
         await self.assert_query_result(
             r'''
                 # Nominate a leader in each group from among the group.
                 #
                 # Same as previous tests, but refactored to take full
-                # advantage of GROUP semantics and BY aliasing.
+                # advantage of DETACHED GROUP semantics and BY aliasing.
                 WITH
                     MODULE cards,
                     C2 := Card
-                GROUP Card
+                DETACHED GROUP Card
                 USING Element :=
                         # partition cards by element
                         Card.element
@@ -672,7 +682,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_by_tuple_01(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING B := (Issue.status.name, Issue.time_estimate)
                 # This tuple will be {} for Issues lacking
                 # time_estimate. So effectively we're expecting only 2
@@ -681,13 +692,14 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                 # - ('Open', 3000)
                 BY B
                 INTO Issue
-                UNION _ := (
+                UNION (
                     sum := sum(<int64>Issue.number),
                     # don't forget to coalesce the {} or else the whole
                     # tuple will collapse
                     status := B.0 ?? '',
                     time_estimate := B.1 ?? 0
-                ) ORDER BY B;
+                )
+                ) ORDER BY .status;
             """,
             [
                 {
@@ -702,7 +714,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_by_multiple_01(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT _ := (
+                DETACHED GROUP Issue
                 USING
                     Stat := Issue.status.name,
                     Est := Issue.time_estimate
@@ -713,31 +726,33 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                 # - 'Open', 3000
                 BY Stat, Est
                 INTO Issue
-                UNION _ := (
+                UNION (
                     sum := sum(<int64>Issue.number),
                     # Stat is never {}, so coalescing is not needed
                     status := Stat,
                     # only this one needs to be coalesced
                     time_estimate := Est ?? 0
-                ) ORDER BY _;
+                )) ORDER BY _;
+
             """,
             [
                 {
-                    'status': 'Closed', 'sum': 7, 'time_estimate': 0,
+                    'status': 'Open', 'sum': 1, 'time_estimate': 3000,
                 },
                 {
                     'status': 'Open', 'sum': 2, 'time_estimate': 0,
                 },
                 {
-                    'status': 'Open', 'sum': 1, 'time_estimate': 3000,
-                }
+                    'status': 'Closed', 'sum': 7, 'time_estimate': 0,
+                },
             ],
         )
 
     async def test_edgeql_group_by_multiple_02(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING
                     Stat := Issue.status.name,
                     Est := Issue.time_estimate
@@ -749,8 +764,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     time_estimate := Est ?? 0
                 )
                 # ordering condition derived from the grouping parameters
-                ORDER BY Stat
-                    THEN Est > 0 EMPTY FIRST;
+                ) ORDER BY .status THEN .time_estimate > 0;
             """,
             [
                 {
@@ -768,7 +782,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_by_multiple_03(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING
                     Stat := Issue.status.name,
                     Est := Issue.time_estimate
@@ -780,7 +795,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                         <int64>Issue.number ORDER BY Issue.number),
                     status := Stat,
                     time_estimate := Est ?? 0
-                ) ORDER BY Stat THEN Est;
+                )
+                ) ORDER BY .status THEN .time_estimate;
             """,
             [
                 {
@@ -802,9 +818,11 @@ class TestEdgeQLGroup(tb.QueryTestCase):
         )
 
     async def test_edgeql_group_by_multiple_04(self):
+        # XXX: we are getting an extra null in one of the watchers!!
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING
                     Stat := Issue.status.name,
                     Est := Issue.time_estimate
@@ -818,7 +836,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                         <str>Issue.watchers.name ORDER BY Issue.watchers.name),
                     status := Stat,
                     time_estimate := Est ?? 0
-                ) ORDER BY Stat THEN Est;
+                )
+                ) ORDER BY .status THEN .time_estimate;
             """,
             [
                 {
@@ -843,10 +862,12 @@ class TestEdgeQLGroup(tb.QueryTestCase):
         )
 
     async def test_edgeql_group_by_multiple_05(self):
+        # XXX: results are super wrong! extra nulls, duplicates fuck
         await self.assert_query_result(
             r"""
-                GROUP
-                    # define a computable in the GROUP expr
+                SELECT (
+                DETACHED GROUP
+                    # define a computable in the DETACHED GROUP expr
                     Issue := Issue {
                         less_than_four := <int64>Issue.number < 4
                     }
@@ -863,7 +884,9 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     watchers := array_agg(
                         Issue.watchers.name ORDER BY Issue.watchers.name),
                     status := Stat,
-                ) ORDER BY Stat THEN X;
+                    x := X
+                )
+                ) ORDER BY .status THEN .x;
             """,
             [
                 {
@@ -887,24 +910,26 @@ class TestEdgeQLGroup(tb.QueryTestCase):
     async def test_edgeql_group_by_multiple_06(self):
         await self.assert_query_result(
             r"""
-                GROUP Issue
+                SELECT (
+                DETACHED GROUP Issue
                 USING
                     Stat := Issue.status.name,
                     # group by some non-trivial expression
                     X := <int64>Issue.number < 4
                 BY Stat, X
                 INTO Issue
-                UNION I := (
+                UNION (
                     numbers := array_agg(
                         <int64>Issue.number ORDER BY Issue.number),
                     watchers := count(DISTINCT Issue.watchers),
                     status := Stat,
-                ) ORDER BY
+                    cnt := count(DISTINCT Issue),
+                )) ORDER BY
                     # used a mixture of different aliases in ORDER BY
-                    Stat
-                    THEN I.watchers
+                    .status
+                    THEN .watchers
                     # should work because count evaluates to a singleton
-                    THEN count(DISTINCT Issue);
+                    THEN .cnt;
             """,
             [
                 {
@@ -925,11 +950,13 @@ class TestEdgeQLGroup(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_07(self):
+    async def test_edgeql_group_by_multiple_07a(self):
+        # XXX: add a version that deletes the x
         await self.assert_query_result(
             r"""
                 WITH MODULE cards
-                GROUP C := Card
+                SELECT (
+                DETACHED GROUP C := Card
                 USING x := C.cost
                 BY x
                 INTO C
@@ -938,32 +965,35 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     # At this point C is a subset of Card. So the below
                     # expression should be the size of the subset in
                     # percent.
-                    100 * count(C) / count(Card)
-                ) ORDER BY x;
+                    100 * count(C) / count(Card),
+                    x,
+                )) ORDER BY .2;
             """,
             [
-                [['Dwarf', 'Imp', 'Sprite'], 33],
-                [['Bog monster', 'Giant eagle'], 22],
-                [['Giant turtle', 'Golem'], 22],
-                [['Djinn'], 11],
-                [['Dragon'], 11]
+                [['Dwarf', 'Imp', 'Sprite'], 33, int],
+                [['Bog monster', 'Giant eagle'], 22, int],
+                [['Giant turtle', 'Golem'], 22, int],
+                [['Djinn'], 11, int],
+                [['Dragon'], 11, int]
             ]
         )
 
     async def test_edgeql_group_linkproperty_simple_01(self):
+        # XXX: I think this is wrong, right? Can't group by B??
         await self.assert_query_result(
             r"""
                 # group by link property
                 WITH MODULE cards
-                GROUP Card
+                SELECT _ := (
+                DETACHED GROUP Card
                 USING B := Card.<deck[IS User]@count
                 BY B
                 INTO Card
-                UNION _ := (
+                UNION (
                     cards := array_agg(
                         DISTINCT Card.name ORDER BY Card.name),
                     count := B,
-                ) ORDER BY _.count;
+                )) ORDER BY _.count;
             """,
             [
                 {
@@ -992,17 +1022,18 @@ class TestEdgeQLGroup(tb.QueryTestCase):
             r"""
                 # use link property inside a group aggregate
                 WITH MODULE cards
-                GROUP Card
+                SELECT _ := (
+                DETACHED GROUP Card
                 USING El :=
                         Card.element
                 BY El
                 INTO Card
-                UNION _ := (
+                UNION (
                     cards := array_agg(
                         DISTINCT Card.name ORDER BY Card.name),
                     element := El,
                     count := sum(Card.<deck[IS User]@count),
-                ) ORDER BY _.count;
+                )) ORDER BY _.count;
             """,
             [
                 {
@@ -1033,7 +1064,8 @@ class TestEdgeQLGroup(tb.QueryTestCase):
             r"""
                 # group by link property
                 WITH MODULE cards
-                GROUP User
+                SELECT _ := (
+                DETACHED GROUP User
                 # get the nickname that this user from Alice (if any)
                 USING B := (
                     SELECT User.<friends[IS User]@nickname
@@ -1041,12 +1073,12 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                 )
                 BY B
                 INTO F
-                UNION _ := (
+                UNION (
                     nickname := B,
                     # the tuple without nickname will be missing from the
                     # final result
                     name := array_agg(F.name)
-                ) ORDER BY _.nickname;
+                )) ORDER BY _.nickname;
             """,
             [
                 {'name': ['Carol'], 'nickname': 'Firefighter'},
@@ -1075,14 +1107,15 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                                 }
                             }
                         # grouping the cards now
-                        GROUP U.deck
+                        SELECT _ := (
+                        DETACHED GROUP U.deck
                         USING B :=  U.deck.element
                         BY B
                         INTO D
-                        UNION _ := (
+                        UNION (
                             name := B,
                             count := sum(D.count),
-                        )
+                        ))
                         ORDER BY _.name
                     )
                 } ORDER BY User.name;
@@ -1130,7 +1163,7 @@ class TestEdgeQLGroup(tb.QueryTestCase):
         await self.assert_query_result(
             r"""
                 WITH
-                    MODULE cards
+                    MODULE cards,
                     U := (
                         SELECT User {
                             deck: {
@@ -1138,18 +1171,19 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                             }
                         } FILTER User.name = 'Dave'
                     )
-                GROUP
+                SELECT (
+                DETACHED GROUP
                     U.deck
                 USING
                     El := U.deck.element,
                     Count := U.deck.count
                 BY El, Count
                 INTO D
-                UNION _ := (
+                UNION (
                     cards := array_agg(D.name ORDER BY D.name),
                     element := El,
                     count := Count,
-                ) ORDER BY El THEN Count;
+                )) ORDER BY .element THEN .count;
             """,
             [
                 # compare to test_edgeql_props_basic01
@@ -1181,18 +1215,20 @@ class TestEdgeQLGroup(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_scalar_01(self):
+    async def test_edgeql_group_scalar_01a(self):
+        # huh.
         await self.assert_query_result(
             r"""
                 WITH
                     I := <int64>Issue.number
-                GROUP I
+                SELECT _r := (
+                DETACHED GROUP I
                 USING _ :=  I % 2 = 0
                 BY _
                 INTO I
-                UNION _r := (
+                UNION (
                     values := array_agg(I ORDER BY I)
-                ) ORDER BY _r.values;
+                )) ORDER BY _r.values;
             """,
             [
                 {'values': [1, 3]},

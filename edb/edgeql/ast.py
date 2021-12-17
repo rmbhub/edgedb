@@ -560,6 +560,11 @@ class GroupQuery(Query, SubjectMixin):
     by: typing.List[GroupingElement]
 
 
+class InternalGroupQuery(GroupQuery, ReturningMixin):
+    group_alias: str
+    grouping_alias: typing.Optional[str]
+
+
 class InsertQuery(Query, SubjectMixin):
     subject: Path
     shape: typing.List[ShapeElement]
