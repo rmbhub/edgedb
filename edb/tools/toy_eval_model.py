@@ -671,6 +671,7 @@ def get_groups(node: qlast.GroupQuery, ctx: EvalContext) -> List[Tuple[
         # And collect all the partial path references
         for key_el in all_keys:
             if isinstance(key_el, IPtr):
+                assert not isinstance(node, qlast.InternalGroupQuery)
                 key_val = eval_ptr(val, key_el, ctx=subctx)
                 assert len(key_val) <= 1
                 keys[key_el] = key_val
@@ -725,6 +726,25 @@ def eval_Group(node: qlast.GroupQuery, ctx: EvalContext) -> Result:
         }
         group_obj = Obj(FREE_ID, group_dict, group_dict)
         out.append(group_obj)
+
+    return out
+
+
+@_eval.register
+def eval_InternalGroup(
+        node: qlast.InternalGroupQuery, ctx: EvalContext) -> Result:
+    all_groups = get_groups(node, ctx)
+
+    out = []
+    for grouping, (bindings, elements) in all_groups:
+        key_dict = {k.name: v for k, v in bindings.items()}
+        subctx = replace(ctx, aliases=ctx.aliases.copy())
+        subctx.aliases.update(key_dict)
+        subctx.aliases[node.group_alias] = elements
+        if node.grouping_alias:
+            subctx.aliases[node.grouping_alias] = [[g.name for g in grouping]]
+
+        out += subquery(node.result, ctx=subctx)
 
     return out
 
