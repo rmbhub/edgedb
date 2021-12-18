@@ -62,8 +62,11 @@ from edb.common.compiler import SimpleCounter
 from edb import edgeql
 
 from edb.common.ast import NodeVisitor
+from edb.common.compiler import AliasGenerator
 from edb.edgeql import ast as qlast
 from edb.edgeql import qltypes as ft
+from edb.edgeql import desugar_group
+
 
 from dataclasses import dataclass, replace
 from collections import defaultdict
@@ -79,6 +82,9 @@ import random
 import statistics
 import traceback
 import uuid
+
+
+DESUGARING_GROUP = True
 
 
 T = TypeVar('T')
@@ -710,8 +716,7 @@ def get_groups(node: qlast.GroupQuery, ctx: EvalContext) -> List[Tuple[
     return all_groups
 
 
-@_eval.register
-def eval_Group(node: qlast.GroupQuery, ctx: EvalContext) -> Result:
+def direct_eval_group(node: qlast.GroupQuery, ctx: EvalContext) -> Result:
     all_groups = get_groups(node, ctx)
 
     # Now we can produce our output.
@@ -742,11 +747,21 @@ def eval_InternalGroup(
         subctx.aliases.update(key_dict)
         subctx.aliases[node.group_alias] = elements
         if node.grouping_alias:
-            subctx.aliases[node.grouping_alias] = [[g.name for g in grouping]]
+            subctx.aliases[node.grouping_alias] = [
+                [g.name.split('~')[0] for g in grouping]]
 
         out += subquery(node.result, ctx=subctx)
 
     return out
+
+
+@_eval.register
+def eval_Group(node: qlast.GroupQuery, ctx: EvalContext) -> Result:
+    if DESUGARING_GROUP:
+        return eval(
+            desugar_group.desugar_group(node, AliasGenerator()), ctx=ctx)
+    else:
+        return direct_eval_group(node, ctx=ctx)
 
 
 @_eval.register

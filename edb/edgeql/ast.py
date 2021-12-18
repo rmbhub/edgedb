@@ -541,15 +541,15 @@ class GroupingElement(Base):
     __abstract_node__ = True
 
 
-class GroupingSimple(Base):
+class GroupingSimple(GroupingElement):
     element: GroupingAtom
 
 
-class GroupingSets(Base):
+class GroupingSets(GroupingElement):
     sets: typing.List[GroupingElement]
 
 
-class GroupingOperation(Base):
+class GroupingOperation(GroupingElement):
     oper: str
     elements: typing.List[GroupingAtom]
 
