@@ -47,6 +47,7 @@ from edb.schema import utils as s_utils
 from edb.edgeql import ast as qlast
 from edb.edgeql import utils as qlutils
 from edb.edgeql import qltypes
+from edb.edgeql import desugar_group
 
 from . import astutils
 from . import clauses
@@ -234,13 +235,78 @@ def compile_ForQuery(
     return result
 
 
+@dispatch.compile.register(qlast.InternalGroupQuery)
+def compile_InternalGroupQuery(
+    expr: qlast.InternalGroupQuery, *, ctx: context.ContextLevel
+) -> irast.Set:
+    with ctx.subquery() as sctx:
+        stmt = irast.GroupStmt(by=expr.by)
+        init_stmt(stmt, expr, ctx=sctx, parent_ctx=ctx)
+
+        # XXX: is this right?
+        # a fiddly thing about this all is that the group alias
+        # actually *does* need to keep the shape... can we do that??
+        # XXX: subcontext??
+        stmt.subject = compile_result_clause(
+            expr.subject,
+            # XXX?
+            # view_scls=ctx.view_scls,
+            # view_rptr=ctx.view_rptr,
+            result_alias=expr.subject_alias,
+            ctx=sctx)
+
+        # compile the USING
+        assert expr.using is not None
+
+        for using_entry in expr.using:
+            with sctx.new() as scopectx:
+                if scopectx.expr_exposed:
+                    scopectx.expr_exposed = context.Exposure.BINDING
+                binding = stmtctx.declare_view(
+                    using_entry.expr,
+                    s_name.UnqualName(using_entry.alias),
+                    binding_kind=irast.BindingKind.With,
+                    # must_be_used=True,  # XXX?
+                    ctx=scopectx,
+                )
+                stmt.using[using_entry.alias] = binding
+
+        # XXX: need to do binding stuff for the aliases...
+        # we need to create a new type for it, of course.
+
+        subject_stype = setgen.get_set_type(stmt.subject, ctx=sctx)
+        group_binding_type = schemactx.derive_view(
+            subject_stype,
+            derived_name=s_name.QualName('__derived__', expr.group_alias),
+            preserve_shape=True, ctx=ctx)  # ???
+
+        stmt.group_binding = setgen.class_set(group_binding_type, ctx=sctx)
+        sctx.anchors[expr.group_alias] = stmt.group_binding
+
+        # compile the output
+        stmt.result = compile_result_clause(
+            expr.result,
+            # XXX?
+            # view_scls=ctx.view_scls,
+            # view_rptr=ctx.view_rptr,
+            # result_alias=expr.result_alias,
+            ctx=sctx)
+
+        result = fini_stmt(stmt, expr, ctx=sctx, parent_ctx=ctx)
+
+    # result.dump()
+    # expr.dump()
+
+    return result
+
+
 @dispatch.compile.register(qlast.GroupQuery)
 def compile_GroupQuery(
-        expr: qlast.Base, *, ctx: context.ContextLevel) -> irast.Set:
-
-    raise errors.UnsupportedFeatureError(
-        "'GROUP' statement is not currently implemented",
-        context=expr.context)
+        expr: qlast.GroupQuery, *, ctx: context.ContextLevel) -> irast.Set:
+    return dispatch.compile(
+        desugar_group.desugar_group(expr, ctx.aliases, no_grouping_field=True),
+        ctx=ctx,
+    )
 
 
 @dispatch.compile.register(qlast.InsertQuery)

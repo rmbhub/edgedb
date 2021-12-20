@@ -859,10 +859,13 @@ class SelectStmt(FilteredStmt):
 
 
 class GroupStmt(Stmt):
-    subject: Set
-    groupby: typing.List[Set]
-    result: Set
-    group_path_id: PathId
+    subject: Set = EmptySet()  # type: ignore
+    # XXX
+    using: typing.Dict[str, Set] = ast.field(factory=dict)
+    by: typing.List[qlast.GroupingElement]
+    result: Set = EmptySet()  # type: ignore
+    group_binding: Set = EmptySet()  # type: ignore
+    # group_path_id: PathId
 
 
 class MutatingStmt(Stmt):

@@ -1184,7 +1184,19 @@ def __infer_group_stmt(
     scope_tree: irast.ScopeTreeNode,
     ctx: inference_context.InfCtx,
 ) -> qltypes.Cardinality:
-    raise NotImplementedError
+    infer_cardinality(ir.subject, scope_tree=scope_tree, ctx=ctx)
+    for binding in ir.using.values():
+        binding_card = infer_cardinality(
+            binding, scope_tree=scope_tree, ctx=ctx)
+        if binding_card.is_multi():
+            raise errors.QueryError(
+                'possibly more than one element returned by an expression '
+                'where only singletons are allowed',
+                context=binding.context)
+
+    infer_cardinality(ir.result, scope_tree=scope_tree, ctx=ctx)
+
+    return MANY
 
 
 @_infer_cardinality.register

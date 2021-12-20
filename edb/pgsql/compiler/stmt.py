@@ -138,6 +138,13 @@ def compile_SelectStmt(
     return query
 
 
+@dispatch.compile.register(irast.GroupStmt)
+def compile_GroupStmt(
+        stmt: irast.GroupStmt, *,
+        ctx: context.CompilerContextLevel) -> pgast.BaseExpr:
+    raise NotImplementedError
+
+
 @dispatch.compile.register(irast.InsertStmt)
 def compile_InsertStmt(
         stmt: irast.InsertStmt, *,

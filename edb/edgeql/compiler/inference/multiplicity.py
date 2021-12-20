@@ -663,7 +663,12 @@ def __infer_group_stmt(
     scope_tree: irast.ScopeTreeNode,
     ctx: inf_ctx.InfCtx,
 ) -> inf_ctx.MultiplicityInfo:
-    raise NotImplementedError
+    infer_multiplicity(ir.subject, scope_tree=scope_tree, ctx=ctx)
+    for binding in ir.using.values():
+        infer_multiplicity(binding, scope_tree=scope_tree, ctx=ctx)
+    infer_multiplicity(ir.result, scope_tree=scope_tree, ctx=ctx)
+
+    return MANY
 
 
 @_infer_multiplicity.register
