@@ -30,12 +30,12 @@ from edb.edgeql import qltypes
 from edb.ir import ast as irast
 from edb.pgsql import ast as pgast
 
-# from . import clauses
+from . import clauses
 from . import context
 from . import dispatch
 from . import pathctx
-from . import relgen
-
+from . import relctx
+# from . import relgen
 
 
 class FindAggregatingUses(ast_visitor.NodeVisitor):
@@ -162,62 +162,69 @@ def _compile_group(
         {x.path_id for x in stmt.using.values()},
     )
     visitor.visit(stmt.result)
+    group_uses = visitor.sightings
 
-    print("GOT THIS STUFF", visitor.sightings)
-    if None in visitor.sightings:
+    print("GOT THIS STUFF", group_uses)
+    if None in group_uses:
         raise errors.QueryError("Still need to aggregate group references!")
 
     # OK Actually compile now
     query = ctx.stmt
 
-    with ctx.new() as newctx:
-        dispatch.visit(stmt.subject, ctx=newctx)
+    # Compile a GROUP BY into a subquery, along with all the aggregations
+    with ctx.subrel() as groupctx:
+        grouprel = groupctx.rel
 
-    # ???
-    for _alias, value in stmt.using.items():
-        dispatch.visit(value, ctx=ctx)
+        # First compile the actual subject
+        # subrel *solely* for path id map reasons
+        with groupctx.new() as subjctx:
+            pathctx.put_path_id_map(
+                subjctx.rel,
+                stmt.group_binding.path_id, stmt.subject.path_id)
+            dispatch.visit(stmt.subject, ctx=subjctx)
+        # XXX: aspects?
+        subj_rvar = relctx.rvar_for_rel(
+            subjctx.rel, ctx=groupctx, lateral=True)
+        # aspects = pathctx.list_path_aspects(
+        #     newctx.rel, element.val.path_id, env=ctx.env)
+        # update_mask=False because we are doing this solely to remap
+        # elements individually and don't want to affect the mask.
+        relctx.include_rvar(
+            grouprel, subj_rvar, stmt.group_binding.path_id,
+            update_mask=False, ctx=groupctx)
 
-    # ????
-    # pathctx.put_path_id_map(
-    #     query, stmt.group_binding.path_id, stmt.subject.path_id)
-    # pathctx.put_path_id_map(
-    #     query, stmt.subject.path_id, stmt.group_binding.path_id)
+        # Now we compile the bindings
+        for _alias, value in stmt.using.items():
+            dispatch.visit(value, ctx=groupctx)
 
-    subj_rvar = pathctx.get_path_rvar(
-        query, stmt.subject.path_id, aspect='value', env=ctx.env)
+        # TODO: hoisted stuff
 
-    for aspect in ['source', 'value']:
-        pathctx.put_path_rvar(
-            query, stmt.group_binding.path_id,
-            subj_rvar,
-            aspect=aspect,
-            env=ctx.env)
+        grouprel.group_clause = [
+            compile_grouping_el(el, stmt, ctx=groupctx) for el in stmt.by
+        ]
 
-    # AAAAAAYYYAYAYAYAYAY
-    # stmt.group_binding.expr = irast.SelectStmt(result=stmt.subject)
-    # breakpoint()
+    group_rvar = relctx.rvar_for_rel(grouprel, ctx=ctx, lateral=True)
+    # XXX: mask, aspects??
+    relctx.include_rvar(
+        query, group_rvar, stmt.group_binding.path_id,
+        aspects=('value',),  # maybe?
+        update_mask=False, ctx=ctx)
 
-    # clauses.compile_output(stmt.result, ctx=ctx)
+    # Set up the hoisted aggregates and bindings to be found
+    # in the group subquery.
+    for group_use in [*group_uses, *stmt.using.values()]:
+        if group_use:
+            pathctx.put_path_rvar(
+                query, group_use.path_id,
+                group_rvar, aspect='value', env=ctx.env)
 
-    # XXX?
-    out = relgen.set_as_subquery(stmt.result, ctx=ctx)
-    name = ctx.env.aliases.get('asdf')
-    query.target_list.append(pgast.ResTarget(name=name, val=out))
-    result = pgast.ColumnRef(name=[name], nullable=True)
-    pathctx._put_path_output_var(
-        query, stmt.result.path_id, 'value', result, env=ctx.env)
-    # ... wrong, but ok
-    pathctx._put_path_output_var(
-        query, stmt.result.path_id, 'serialized', result, env=ctx.env)
-    # breakpoint()
-
-    query.group_clause = [
-        compile_grouping_el(el, stmt, ctx=ctx) for el in stmt.by
-    ]
+    # ... right? It's that simple?
+    clauses.compile_output(stmt.result, ctx=ctx)
 
     # XXX: bindings?
 
     return query
+
 
 def compile_group(
         stmt: irast.GroupStmt, *,
