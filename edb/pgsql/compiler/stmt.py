@@ -30,6 +30,7 @@ from . import astutils
 from . import clauses
 from . import context
 from . import dispatch
+from . import group
 from . import dml
 from . import pathctx
 
@@ -142,7 +143,7 @@ def compile_SelectStmt(
 def compile_GroupStmt(
         stmt: irast.GroupStmt, *,
         ctx: context.CompilerContextLevel) -> pgast.BaseExpr:
-    raise NotImplementedError
+    return group.compile_group(stmt, ctx=ctx)
 
 
 @dispatch.compile.register(irast.InsertStmt)

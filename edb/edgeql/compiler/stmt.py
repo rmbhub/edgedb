@@ -269,6 +269,7 @@ def compile_InternalGroupQuery(
                     # must_be_used=True,  # XXX?
                     ctx=scopectx,
                 )
+                binding.context = using_entry.expr.context
                 stmt.using[using_entry.alias] = binding
 
         # XXX: need to do binding stuff for the aliases...
