@@ -136,5 +136,7 @@ class AliasGenerator(SimpleCounter):
 
         idx = self.nextval(hint)
         alias = f'{hint}~{idx}'
+        # if alias == 'q~1':
+        #     breakpoint()
 
         return alias

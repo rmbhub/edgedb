@@ -705,6 +705,13 @@ def update_scope(
 
     for p in scope_tree.path_children:
         assert p.path_id is not None
+        # print(f"ADDING {p.path_id} to path_scope {stmt}")
+        # if '::e' in repr(p.path_id):
+        #     asdf = False
+        #     breakpoint()
+        #     if asdf:
+        #         return
+
         ctx.path_scope[p.path_id] = stmt
 
     for child_path in scope_tree.get_all_paths():

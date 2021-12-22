@@ -266,6 +266,8 @@ def compile_InternalGroupQuery(
                     using_entry.expr,
                     s_name.UnqualName(using_entry.alias),
                     binding_kind=irast.BindingKind.With,
+                    # XXX: I don't like doing this
+                    new_namespace=False,
                     # must_be_used=True,  # XXX?
                     ctx=scopectx,
                 )
@@ -282,16 +284,21 @@ def compile_InternalGroupQuery(
             preserve_shape=True, ctx=ctx)  # ???
 
         stmt.group_binding = setgen.class_set(group_binding_type, ctx=sctx)
+        sctx.aliased_views.pop(s_name.UnqualName(expr.group_alias), None)
         sctx.anchors[expr.group_alias] = stmt.group_binding
 
         # compile the output
-        stmt.result = compile_result_clause(
-            expr.result,
-            # XXX?
-            # view_scls=ctx.view_scls,
-            # view_rptr=ctx.view_rptr,
-            # result_alias=expr.result_alias,
-            ctx=sctx)
+        # newscope because we don't want the result to get assigned the
+        # same statement scope as the subject and elements, which we
+        # need to stick in the real GROUP BY
+        with sctx.newscope(fenced=True) as bctx:
+            stmt.result = compile_result_clause(
+                expr.result,
+                # XXX?
+                # view_scls=ctx.view_scls,
+                # view_rptr=ctx.view_rptr,
+                # result_alias=expr.result_alias,
+                ctx=bctx)
 
         result = fini_stmt(stmt, expr, ctx=sctx, parent_ctx=ctx)
 

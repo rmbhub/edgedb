@@ -120,6 +120,10 @@ def needs_eta_expansion_expr(
         return needs_eta_expansion(
             ir.result, is_processed=bool(ir.where or ir.orderby), ctx=ctx)
 
+    # XXX: we would *like* to do this, but can't.
+    # if isinstance(ir, irast.GroupStmt):
+    #     return needs_eta_expansion(ir.result, ctx=ctx)
+
     if isinstance(stype, s_types.Array):
         if isinstance(ir, irast.Array):
             return bool(ir.elements) and (

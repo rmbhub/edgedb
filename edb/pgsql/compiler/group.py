@@ -35,7 +35,7 @@ from . import context
 from . import dispatch
 from . import pathctx
 from . import relctx
-# from . import relgen
+from . import relgen
 
 
 class FindAggregatingUses(ast_visitor.NodeVisitor):
@@ -164,7 +164,6 @@ def _compile_group(
     visitor.visit(stmt.result)
     group_uses = visitor.sightings
 
-    print("GOT THIS STUFF", group_uses)
     if None in group_uses:
         raise errors.QueryError("Still need to aggregate group references!")
 
@@ -175,9 +174,16 @@ def _compile_group(
     with ctx.subrel() as groupctx:
         grouprel = groupctx.rel
 
+        # breakpoint()
+
         # First compile the actual subject
         # subrel *solely* for path id map reasons
-        with groupctx.new() as subjctx:
+        with groupctx.subrel() as subjctx:
+            subjctx.path_scope = subjctx.path_scope.new_child()
+            # ???
+            # MAYBE WE SHOULD SWIZZLE AROUND SUBREL
+            subjctx.path_scope[stmt.subject.path_id] = None
+
             pathctx.put_path_id_map(
                 subjctx.rel,
                 stmt.group_binding.path_id, stmt.subject.path_id)
@@ -192,12 +198,33 @@ def _compile_group(
         relctx.include_rvar(
             grouprel, subj_rvar, stmt.group_binding.path_id,
             update_mask=False, ctx=groupctx)
+        relctx.include_rvar(
+            grouprel, subj_rvar, stmt.subject.path_id,
+            update_mask=False, ctx=groupctx)
 
         # Now we compile the bindings
+        groupctx.path_scope = subjctx.path_scope.new_child()
         for _alias, value in stmt.using.items():
+            # assert groupctx.path_scope[value.path_id] == ctx.rel
+            # groupctx.path_scope[value.path_id] = None  # ???
             dispatch.visit(value, ctx=groupctx)
 
-        # TODO: hoisted stuff
+        for group_use in group_uses:
+            if not group_use:
+                continue
+            with groupctx.subrel() as hoistctx:
+                # XXX: do we need the rvars??
+                relgen.process_set_as_agg_expr_inner(
+                    group_use, hoistctx.rel,
+                    aspect='value', wrapper=None, for_group_by=True,
+                    ctx=hoistctx)
+                pathctx.get_path_value_output(
+                    rel=hoistctx.rel, path_id=group_use.path_id, env=ctx.env)
+                pathctx.put_path_value_var(
+                    grouprel, group_use.path_id, hoistctx.rel, env=ctx.env
+                )
+
+        # TODO: MATERIALIZE
 
         grouprel.group_clause = [
             compile_grouping_el(el, stmt, ctx=groupctx) for el in stmt.by
