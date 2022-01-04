@@ -21,8 +21,6 @@ from __future__ import annotations
 
 from typing import *
 
-from edb import errors
-
 from edb.common import ast as ast_visitor
 
 from edb.edgeql import ast as qlast
@@ -164,9 +162,6 @@ def _compile_group(
     visitor.visit(stmt.result)
     group_uses = visitor.sightings
 
-    if None in group_uses:
-        raise errors.QueryError("Still need to aggregate group references!")
-
     # OK Actually compile now
     query = ctx.stmt
 
@@ -183,6 +178,7 @@ def _compile_group(
             # ???
             # MAYBE WE SHOULD SWIZZLE AROUND SUBREL
             subjctx.path_scope[stmt.subject.path_id] = None
+            subjctx.expr_exposed = False
 
             pathctx.put_path_id_map(
                 subjctx.rel,
@@ -224,18 +220,61 @@ def _compile_group(
                     grouprel, group_use.path_id, hoistctx.rel, env=ctx.env
                 )
 
-        # TODO: MATERIALIZE
+        packed = False
+        if None in group_uses:
+            packed = True
+            # OK WE NEED TO DO THE HARD THING
+            # XXX: dupe with materialized stuff
+            # XXX: Also, when all we do is serialize, we'd like to *just*
+            # serialize...
+            with context.output_format(ctx, context.OutputFormat.NATIVE), (
+                    ctx.new()) as matctx:
+                matctx.materializing |= {stmt}  # ...
+
+                # XXX: XXX: this is bullshit and we need to do
+                # something like this during IR compilation if at allb
+                stmt.group_binding.shape = stmt.subject.shape
+
+                mat_qry = relgen.set_as_subquery(
+                    stmt.group_binding, as_value=True, ctx=matctx)
+                mat_qry = relctx.set_to_array(
+                    path_id=stmt.group_binding.path_id,
+                    for_group_by=True,
+                    query=mat_qry,
+                    ctx=matctx)
+                if not mat_qry.target_list[0].name:
+                    mat_qry.target_list[0].name = ctx.env.aliases.get('v')
+
+                ref = pgast.ColumnRef(
+                    name=[mat_qry.target_list[0].name],
+                    is_packed_multi=True,
+                )
+                pathctx.put_path_packed_output(
+                    mat_qry, stmt.group_binding.path_id, ref)
+
+                pathctx.put_path_var(
+                    grouprel, stmt.group_binding.path_id, mat_qry,
+                    aspect='value',
+                    flavor='packed', env=ctx.env
+                )
 
         grouprel.group_clause = [
             compile_grouping_el(el, stmt, ctx=groupctx) for el in stmt.by
         ]
 
     group_rvar = relctx.rvar_for_rel(grouprel, ctx=ctx, lateral=True)
+    # ???
+    if packed:
+        relctx.include_rvar(
+            query, group_rvar, path_id=stmt.group_binding.path_id,
+            flavor='packed', update_mask=False, pull_namespace=False,
+            ctx=ctx)
     # XXX: mask, aspects??
-    relctx.include_rvar(
-        query, group_rvar, stmt.group_binding.path_id,
-        aspects=('value',),  # maybe?
-        update_mask=False, ctx=ctx)
+    else:
+        relctx.include_rvar(
+            query, group_rvar, stmt.group_binding.path_id,
+            aspects=('value',),  # maybe?
+            update_mask=False, ctx=ctx)
 
     # Set up the hoisted aggregates and bindings to be found
     # in the group subquery.

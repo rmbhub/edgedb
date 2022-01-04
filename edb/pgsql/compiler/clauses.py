@@ -134,7 +134,6 @@ def compile_materialized_exprs(
                 mat_qry = relctx.set_to_array(
                     path_id=mat_set.materialized.path_id,
                     query=mat_qry,
-                    materializing=True,
                     ctx=matctx)
 
             if not mat_qry.target_list[0].name:
