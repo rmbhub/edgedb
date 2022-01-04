@@ -16,17 +16,12 @@
 # limitations under the License.
 #
 
-# ALL OF THESE TESTS USE OUT OF DATE SYNTAX.
-# They are left in as a starting point for new tests.
-
-
 import os.path
 
 from edb.testbase import server as tb
 from edb.tools import test
 
 
-@test.not_implemented('GROUP statement is not yet implemented')
 class TestEdgeQLGroupInternal(tb.QueryTestCase):
     '''These tests are focused on using the internal GROUP statement.'''
 
@@ -39,7 +34,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
     SETUP = os.path.join(os.path.dirname(__file__), 'schemas',
                          'groups_setup.edgeql')
 
-    async def test_edgeql_group_simple_01(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_simple_01(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP User
@@ -51,7 +47,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {4, 2},
         )
 
-    async def test_edgeql_group_simple_02(self):
+    async def test_edgeql_igroup_simple_02(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP Issue := Issue
@@ -66,7 +62,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {3, 1},
         )
 
-    async def test_edgeql_group_simple_03(self):
+    async def test_edgeql_igroup_simple_03(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP Issue
@@ -79,7 +75,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {3, 1},
         )
 
-    async def test_edgeql_group_simple_04(self):
+    async def test_edgeql_igroup_simple_04(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP Issue
@@ -93,7 +89,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {3, 1},
         )
 
-    async def test_edgeql_group_simple_05(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_simple_05(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP Issue
@@ -107,7 +104,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {2, 1},
         )
 
-    async def test_edgeql_group_simple_06(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_simple_06(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP Issue
@@ -121,7 +119,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {2, 1},
         )
 
-    async def test_edgeql_group_by_01(self):
+    async def test_edgeql_igroup_by_01(self):
         await self.assert_query_result(
             r"""
                 SELECT (
@@ -147,7 +145,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_02(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_by_02(self):
         await self.assert_query_result(
             r"""
                 SELECT (
@@ -169,7 +168,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             }],
         )
 
-    async def test_edgeql_group_result_alias_01(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_result_alias_01(self):
         await self.assert_query_result(
             r'''
                 SELECT _ := (
@@ -202,7 +202,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             [{'count': 1, 'te': [True]}, {'count': 3, 'te': []}],
         )
 
-    async def test_edgeql_group_result_alias_02(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_result_alias_02(self):
         await self.assert_query_result(
             r'''
                 SELECT _ := (
@@ -221,7 +222,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             [{'count': 1, 'te': [True]}, {'count': 3, 'te': []}],
         )
 
-    async def test_edgeql_group_nested_01(self):
+    async def test_edgeql_igroup_nested_01(self):
         await self.assert_query_result(
             r"""
                 SELECT
@@ -269,7 +270,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_returning_01(self):
+    async def test_edgeql_igroup_returning_01(self):
         await self.assert_query_result(
             r'''
                 DETACHED GROUP Issue
@@ -284,7 +285,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             [42, 42],
         )
 
-    async def test_edgeql_group_returning_02(self):
+    async def test_edgeql_igroup_returning_02(self):
         await self.assert_query_result(
             r'''
                 SELECT _ := (
@@ -300,7 +301,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             [1, 3, 42, 42],
         )
 
-    async def test_edgeql_group_returning_03(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_03(self):
         await self.assert_query_result(
             r'''
                 SELECT (
@@ -329,7 +331,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_returning_04(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_04(self):
         await self.assert_query_result(
             r'''
                 SELECT (
@@ -364,7 +367,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_returning_05(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_05(self):
         await self.assert_query_result(
             r'''
                 # a trivial group that is actually not doing anything
@@ -392,7 +396,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_returning_06(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_06(self):
         await self.assert_query_result(
             r'''
                 # a trivial group that is actually not doing anything
@@ -420,7 +425,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_returning_07(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_07(self):
         await self.assert_query_result(
             r'''
                 # Nominate a leader in each group from among the group.
@@ -510,7 +516,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_returning_08(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_08(self):
         await self.assert_query_result(
             r'''
                 # Nominate a leader in each group from among the group.
@@ -595,7 +602,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_returning_09(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_returning_09(self):
         # XXX
         await self.assert_query_result(
             r'''
@@ -679,7 +687,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_by_tuple_01(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_by_tuple_01(self):
         await self.assert_query_result(
             r"""
                 SELECT (
@@ -711,7 +720,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_01(self):
+    async def test_edgeql_igroup_by_multiple_01(self):
         await self.assert_query_result(
             r"""
                 SELECT _ := (
@@ -748,7 +757,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_02(self):
+    async def test_edgeql_igroup_by_multiple_02(self):
         await self.assert_query_result(
             r"""
                 SELECT (
@@ -779,7 +788,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_03(self):
+    async def test_edgeql_igroup_by_multiple_03(self):
         await self.assert_query_result(
             r"""
                 SELECT (
@@ -817,7 +826,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_04(self):
+    @test.xfail('still broken: extra nulls!')
+    async def test_edgeql_igroup_by_multiple_04(self):
         # XXX: we are getting an extra null in one of the watchers!!
         await self.assert_query_result(
             r"""
@@ -861,7 +871,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_05(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_by_multiple_05(self):
         # XXX: results are super wrong! extra nulls, duplicates fuck
         await self.assert_query_result(
             r"""
@@ -907,7 +918,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_06(self):
+    async def test_edgeql_igroup_by_multiple_06(self):
         await self.assert_query_result(
             r"""
                 SELECT (
@@ -950,7 +961,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_by_multiple_07a(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_by_multiple_07a(self):
         # XXX: add a version that deletes the x
         await self.assert_query_result(
             r"""
@@ -978,7 +990,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_linkproperty_simple_01(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_linkproperty_simple_01(self):
         # XXX: I think this is wrong, right? Can't group by B??
         await self.assert_query_result(
             r"""
@@ -1017,7 +1030,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    async def test_edgeql_group_linkproperty_simple_02(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_linkproperty_simple_02(self):
         await self.assert_query_result(
             r"""
                 # use link property inside a group aggregate
@@ -1059,7 +1073,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_linkproperty_simple_03(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_linkproperty_simple_03(self):
         await self.assert_query_result(
             r"""
                 # group by link property
@@ -1087,7 +1102,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_linkproperty_nested_01(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_linkproperty_nested_01(self):
         await self.assert_query_result(
             r"""
                 WITH MODULE cards
@@ -1159,7 +1175,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_linkproperty_multiple_01(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_linkproperty_multiple_01(self):
         await self.assert_query_result(
             r"""
                 WITH
@@ -1215,7 +1232,8 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ]
         )
 
-    async def test_edgeql_group_scalar_01a(self):
+    @test.xfail('still broken')
+    async def test_edgeql_igroup_scalar_01a(self):
         # huh.
         await self.assert_query_result(
             r"""
@@ -1234,4 +1252,52 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
                 {'values': [1, 3]},
                 {'values': [2, 4]}
             ]
+        )
+
+    async def test_edgeql_igroup_to_freeobject_01(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card { name }
+                USING e := .element,
+                BY e
+                INTO g UNION { z := g };
+            """,
+            tb.bag([
+                {"z": tb.bag(
+                    [{"name": "Bog monster"}, {"name": "Giant turtle"}])},
+                {"z": tb.bag(
+                    [{"name": "Imp"}, {"name": "Dragon"}])},
+                {"z": tb.bag([{"name": "Dwarf"}, {"name": "Golem"}])},
+                {"z": tb.bag([
+                    {"name": "Sprite"},
+                    {"name": "Giant eagle"},
+                    {"name": "Djinn"},
+                ])}
+            ])
+        )
+
+    async def test_edgeql_igroup_to_freeobject_02(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card { name }
+                USING e := .element,
+                BY e
+                INTO g UNION { n := count(g) };
+            """,
+            tb.bag([{"n": 2}, {"n": 2}, {"n": 2}, {"n": 3}]),
+        )
+
+    @test.xfail("wrapping it in a SELECT breaks tihngs")
+    async def test_edgeql_igroup_to_freeobject_03(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                SELECT (DETACHED GROUP Card { name }
+                USING e := .element,
+                BY e
+                INTO g UNION { n := count(g) });
+            """,
+            tb.bag([{"n": 2}, {"n": 2}, {"n": 2}, {"n": 3}]),
         )
