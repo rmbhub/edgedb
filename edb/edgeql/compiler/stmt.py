@@ -292,7 +292,7 @@ def compile_InternalGroupQuery(
         sctx.aliased_views[group_name] = group_binding_type
         sctx.view_sets[group_binding_type] = stmt.group_binding
         sctx.path_scope_map[stmt.group_binding] = context.ScopeInfo(
-            path_scope=sctx.path_scope, binding_kind=irast.BindingKind.For
+            path_scope=sctx.path_scope, binding_kind=irast.BindingKind.Group
         )
 
         # compile the output
