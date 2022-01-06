@@ -457,7 +457,6 @@ class BindingKind(s_enum.StrEnum):
     With = 'With'
     For = 'For'
     Select = 'Select'
-    Group = 'Group'
 
 
 class Set(Base):
