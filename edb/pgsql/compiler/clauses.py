@@ -121,6 +121,7 @@ def compile_materialized_exprs(
             # We pack optional things into arrays also, since it works.
             # TODO: use NULL?
             card = mat_set.cardinality
+            assert card != qltypes.Cardinality.UNKNOWN
             is_singleton = card.is_single() and not card.can_be_zero()
 
             matctx.path_scope = matctx.path_scope.new_child()

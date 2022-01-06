@@ -1196,6 +1196,9 @@ def __infer_group_stmt(
 
     infer_cardinality(ir.result, scope_tree=scope_tree, ctx=ctx)
 
+    _infer_matset_cardinality(
+        ir.materialized_sets, scope_tree=scope_tree, ctx=ctx)
+
     return MANY
 
 
