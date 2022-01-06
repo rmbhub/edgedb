@@ -122,6 +122,13 @@ def fini_expression(
 
     _fixup_materialized_sets(ir, ctx=ctx)
 
+    # # XXX: ... yikes. the main thing this accomplishes is that we need
+    # # the group to be visible when doing fixup materialized sets, but
+    # # we *don't* want to it be visible for cardinality purposes.
+    # for node in ctx.path_scope.descendants:
+    #     if node.is_group:
+    #         node.remove()
+
     # The inference context object will be shared between
     # cardinality and multiplicity inferrers.
     inf_ctx = inference.make_ctx(env=ctx.env)
@@ -303,9 +310,10 @@ def _fixup_materialized_sets(
                         for x in mat_set.use_sets
                     ]
                     for b, _ in x.sets:
-                        if parent.is_visible(b) and not all(
+                        if parent.is_visible(b, allow_group=True) and not all(
                             use_scope and use_scope.parent
-                            and use_scope.parent.is_visible(b)
+                            and use_scope.parent.is_visible(
+                                b, allow_group=True)
                             for use_scope in use_scopes
                         ):
                             good_reason = True

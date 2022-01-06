@@ -28,6 +28,7 @@ import textwrap
 
 from edb import errors
 from edb.common import context as pctx
+from edb.common.typeutils import not_none
 
 from edb.ir import ast as irast
 from edb.ir import typeutils
@@ -239,6 +240,8 @@ def compile_ForQuery(
 def compile_InternalGroupQuery(
     expr: qlast.InternalGroupQuery, *, ctx: context.ContextLevel
 ) -> irast.Set:
+    # expr.dump()
+
     with ctx.subquery() as sctx:
         stmt = irast.GroupStmt(by=expr.by)
         init_stmt(stmt, expr, ctx=sctx, parent_ctx=ctx)
@@ -284,14 +287,25 @@ def compile_InternalGroupQuery(
             preserve_shape=True, ctx=ctx)  # ???
 
         stmt.group_binding = setgen.class_set(group_binding_type, ctx=sctx)
-        sctx.aliased_views.pop(s_name.UnqualName(expr.group_alias), None)
-        sctx.anchors[expr.group_alias] = stmt.group_binding
+
+        group_name = s_name.UnqualName(expr.group_alias)
+        sctx.aliased_views[group_name] = group_binding_type
+        sctx.view_sets[group_binding_type] = stmt.group_binding
+        sctx.path_scope_map[stmt.group_binding] = context.ScopeInfo(
+            path_scope=sctx.path_scope, binding_kind=irast.BindingKind.For
+        )
 
         # compile the output
         # newscope because we don't want the result to get assigned the
         # same statement scope as the subject and elements, which we
         # need to stick in the real GROUP BY
         with sctx.newscope(fenced=True) as bctx:
+            pathctx.register_set_in_scope(
+                stmt.group_binding, path_scope=bctx.path_scope, ctx=bctx
+            )
+            node = bctx.path_scope.find_descendant(stmt.group_binding.path_id)
+            not_none(node).is_group = True
+
             stmt.result = compile_result_clause(
                 expr.result,
                 # XXX?
@@ -303,7 +317,6 @@ def compile_InternalGroupQuery(
         result = fini_stmt(stmt, expr, ctx=sctx, parent_ctx=ctx)
 
     # result.dump()
-    # expr.dump()
 
     return result
 

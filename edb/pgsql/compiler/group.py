@@ -232,7 +232,7 @@ def _compile_group(
                 matctx.materializing |= {stmt}  # ...
 
                 # XXX: XXX: this is bullshit and we need to do
-                # something like this during IR compilation if at allb
+                # something like this during IR compilation if at all
                 stmt.group_binding.shape = stmt.subject.shape
 
                 mat_qry = relgen.set_as_subquery(
@@ -268,6 +268,7 @@ def _compile_group(
         relctx.include_rvar(
             query, group_rvar, path_id=stmt.group_binding.path_id,
             flavor='packed', update_mask=False, pull_namespace=False,
+            aspects=('value',),  # maybe?
             ctx=ctx)
     # XXX: mask, aspects??
     else:
@@ -283,6 +284,9 @@ def _compile_group(
             pathctx.put_path_rvar(
                 query, group_use.path_id,
                 group_rvar, aspect='value', env=ctx.env)
+
+    # Process materialized sets
+    clauses.compile_materialized_exprs(query, stmt, ctx=ctx)
 
     # ... right? It's that simple?
     clauses.compile_output(stmt.result, ctx=ctx)

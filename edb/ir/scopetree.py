@@ -59,6 +59,9 @@ class ScopeTreeNode:
     fenced: bool
     """Whether the subtree represents a SET OF argument."""
 
+    is_group: bool
+    """Whether the node reprents a GROUP binding (and so *is* multi...)."""
+
     computable_branch: bool
     """Whether this is a branch created to hide heads in a computable path"""
 
@@ -113,6 +116,7 @@ class ScopeTreeNode:
         self.optional_count = 0 if optional else None
         self.children = []
         self.namespaces = set()
+        self.is_group = False
         self._parent: Optional[weakref.ReferenceType[ScopeTreeNode]] = None
         self._gravestone = None
 
@@ -169,6 +173,8 @@ class ScopeTreeNode:
             parts.append('no-unnest')
         if self.factoring_fence:
             parts.append('no-factor')
+        if self.is_group:
+            parts.append('group')
         parts.append(f'0x{id(self):0x}')
         return ' '.join(parts)
 
@@ -848,12 +854,15 @@ class ScopeTreeNode:
 
         return found, finfo, namespaces
 
-    def find_visible(self, path_id: pathid.PathId) -> Optional[ScopeTreeNode]:
+    def find_visible(
+        self, path_id: pathid.PathId, *, allow_group: bool=False
+    ) -> Optional[ScopeTreeNode]:
         node, _, _ = self.find_visible_ex(path_id)
-        return node
+        return node if (node and (allow_group or not node.is_group)) else None
 
-    def is_visible(self, path_id: pathid.PathId) -> bool:
-        return self.find_visible(path_id) is not None
+    def is_visible(
+            self, path_id: pathid.PathId, *, allow_group: bool=False) -> bool:
+        return self.find_visible(path_id, allow_group=allow_group) is not None
 
     def is_any_prefix_visible(self, path_id: pathid.PathId) -> bool:
         for prefix in reversed(list(path_id.iter_prefixes())):

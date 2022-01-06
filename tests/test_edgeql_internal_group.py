@@ -1289,8 +1289,9 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             tb.bag([{"n": 2}, {"n": 2}, {"n": 2}, {"n": 3}]),
         )
 
-    @test.xfail("wrapping it in a SELECT breaks tihngs")
     async def test_edgeql_igroup_to_freeobject_03(self):
+        # XXX: we generate sort of unsatisfactory code here:
+        # we materialize .n, and properly into an array?
         await self.assert_query_result(
             r"""
                 WITH MODULE cards
