@@ -1424,7 +1424,7 @@ def _late_compile_view_shapes_in_set(
     #
     # This is to avoid losing subquery distinctions (in cases
     # like test_edgeql_scope_tuple_15), and generally seems more natural.
-    if (isinstance(ir_set.expr, irast.SelectStmt)
+    if (isinstance(ir_set.expr, (irast.SelectStmt, irast.GroupStmt))
             and not (ir_set.rptr and not ir_set.rptr.is_definition)
             and (setgen.get_set_type(ir_set, ctx=ctx) ==
                  setgen.get_set_type(ir_set.expr.result, ctx=ctx))):

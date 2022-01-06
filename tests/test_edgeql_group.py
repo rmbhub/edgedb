@@ -65,7 +65,6 @@ class TestEdgeQLGroup(tb.QueryTestCase):
             ])
         )
 
-    @test.xfail("wrapping it in a SELECT breaks tihngs")
     async def test_edgeql_group_simple_02(self):
         # XXX: key, also
         await self.assert_query_result(
@@ -94,5 +93,31 @@ class TestEdgeQLGroup(tb.QueryTestCase):
                     ]),
                     "key": {"element": "Air"}
                 }
+            ])
+        )
+
+    async def test_edgeql_group_simple_02(self):
+        # XXX: key, also
+        # the compilation here is kind of a bummer; could we avoid an
+        # unnest?
+        await self.assert_query_result(
+            r'''
+            SELECT (GROUP cards::Card {name} BY .element)
+            FILTER .key.element != 'Air';
+            ''',
+            tb.bag([
+                {
+                    "elements": tb.bag(
+                        [{"name": "Bog monster"}, {"name": "Giant turtle"}]),
+                    "key": {"element": "Water"}
+                },
+                {
+                    "elements": tb.bag([{"name": "Imp"}, {"name": "Dragon"}]),
+                    "key": {"element": "Fire"}
+                },
+                {
+                    "elements": tb.bag([{"name": "Dwarf"}, {"name": "Golem"}]),
+                    "key": {"element": "Earth"}
+                },
             ])
         )
