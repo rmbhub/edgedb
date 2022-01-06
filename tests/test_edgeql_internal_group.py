@@ -1281,6 +1281,29 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
         await self.assert_query_result(
             r"""
                 WITH MODULE cards
+                SELECT (DETACHED GROUP Card { name }
+                USING e := .element,
+                BY e
+                INTO g UNION { z := g });
+            """,
+            tb.bag([
+                {"z": tb.bag(
+                    [{"name": "Bog monster"}, {"name": "Giant turtle"}])},
+                {"z": tb.bag(
+                    [{"name": "Imp"}, {"name": "Dragon"}])},
+                {"z": tb.bag([{"name": "Dwarf"}, {"name": "Golem"}])},
+                {"z": tb.bag([
+                    {"name": "Sprite"},
+                    {"name": "Giant eagle"},
+                    {"name": "Djinn"},
+                ])}
+            ])
+        )
+
+    async def test_edgeql_igroup_to_freeobject_03(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
                 DETACHED GROUP Card { name }
                 USING e := .element,
                 BY e
@@ -1289,7 +1312,7 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             tb.bag([{"n": 2}, {"n": 2}, {"n": 2}, {"n": 3}]),
         )
 
-    async def test_edgeql_igroup_to_freeobject_03(self):
+    async def test_edgeql_igroup_to_freeobject_04(self):
         # XXX: we generate sort of unsatisfactory code here:
         # we materialize .n, and properly into an array?
         await self.assert_query_result(
