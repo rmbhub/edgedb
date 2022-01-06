@@ -1325,3 +1325,60 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             """,
             tb.bag([{"n": 2}, {"n": 2}, {"n": 2}, {"n": 3}]),
         )
+
+    async def test_edgeql_igroup_filter_01(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                SELECT (DETACHED GROUP Card { name }
+                USING e := .element,
+                BY e
+                INTO g UNION (
+                    SELECT { key := {e := e}, z := g } FILTER e != 'Air')
+                );
+            """,
+            tb.bag([
+                {
+                    "key": {"e": "Water"},
+                    "z": tb.bag(
+                        [{"name": "Bog monster"}, {"name": "Giant turtle"}])
+                },
+                {"key": {"e": "Fire"}, "z": tb.bag([
+                    {"name": "Imp"}, {"name": "Dragon"}])},
+                {"key": {"e": "Earth"}, "z": tb.bag([
+                    {"name": "Dwarf"}, {"name": "Golem"}])}
+            ])
+        )
+
+    @test.xfail('''
+        We produce bogus repeated output with 6 duplications of each group,
+        including 'Air'.
+
+        I think because 6 = |Card| - |Card.element = 'Air'|??
+
+        We would like to be able to generate this kind of code where we push
+        in a FILTER, but we don't *need* to...
+    ''')
+    async def test_edgeql_igroup_filter_02(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                SELECT (DETACHED GROUP Card { name }
+                USING e := .element,
+                BY e
+                INTO g UNION (
+                    SELECT { key := {e := e}, z := g } FILTER .key.e != 'Air')
+                );
+            """,
+            tb.bag([
+                {
+                    "key": {"e": "Water"},
+                    "z": tb.bag(
+                        [{"name": "Bog monster"}, {"name": "Giant turtle"}])
+                },
+                {"key": {"e": "Fire"}, "z": tb.bag([
+                    {"name": "Imp"}, {"name": "Dragon"}])},
+                {"key": {"e": "Earth"}, "z": tb.bag([
+                    {"name": "Dwarf"}, {"name": "Golem"}])}
+            ])
+        )
