@@ -164,6 +164,7 @@ def compile_iterator_expr(
     assert isinstance(iterator_expr.expr, irast.SelectStmt)
 
     with ctx.new() as subctx:
+        subctx.expr_exposed = False
         subctx.rel = query
 
         already_existed = bool(relctx.maybe_get_path_rvar(

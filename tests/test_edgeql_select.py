@@ -6861,6 +6861,21 @@ class TestEdgeQLSelect(tb.QueryTestCase):
             [[{"id": str}], [{"id": str}]]
         )
 
+    async def test_edgeql_collection_shape_08(self):
+        await self.assert_query_result(
+            r'''
+                SELECT X := array_agg(User) FILTER X[0].name != 'Sully';
+            ''',
+            [[{"id": str}, {"id": str}]]
+        )
+
+        await self.assert_query_result(
+            r'''
+            SELECT X := [User] FILTER X[0].name = 'Elvis';
+            ''',
+            [[{"id": str}]]
+        )
+
     async def test_edgeql_assert_fail_object_computed_01(self):
         # check that accessing a trivial computable on an object
         # that will fail to evaluate still fails
