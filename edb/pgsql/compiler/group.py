@@ -49,7 +49,7 @@ class FindAggregatingUses(ast_visitor.NodeVisitor):
         super().__init__()
         self.target = target
         self.to_skip = to_skip
-        self.outer_aggregate: Optional[irast.Set] = None
+        self.aggregate: Optional[irast.Set] = None
         self.sightings: Set[Optional[irast.Set]] = set()
 
     def visit_Stmt(self, stmt: irast.Stmt) -> Any:
@@ -78,7 +78,7 @@ class FindAggregatingUses(ast_visitor.NodeVisitor):
             return
 
         if node.path_id == self.target:
-            self.sightings.add(self.outer_aggregate)
+            self.sightings.add(self.aggregate)
             return
 
         self.visit(node.rptr)
@@ -100,15 +100,14 @@ class FindAggregatingUses(ast_visitor.NodeVisitor):
             and node.func_sql_function
         )
         for arg, typemod in zip(node.args, node.params_typemods):
-            old = self.outer_aggregate
+            old = self.aggregate
             if (
                 ok
-                and old is None
                 and typemod == qltypes.TypeModifier.SetOfType
             ):
-                self.outer_aggregate = ir_set
+                self.aggregate = ir_set
             self.visit(arg)
-            self.outer_aggregate = old
+            self.aggregate = old
 
 
 def compile_grouping_atom(
@@ -160,6 +159,7 @@ def _compile_group(
         {x.path_id for x in stmt.using.values()},
     )
     visitor.visit(stmt.result)
+    # XXX: I think there are potentially issues with overlapping...
     group_uses = visitor.sightings
 
     # OK Actually compile now
