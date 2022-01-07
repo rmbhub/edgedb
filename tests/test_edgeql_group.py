@@ -19,7 +19,6 @@
 import os.path
 
 from edb.testbase import server as tb
-from edb.tools import test
 
 
 class TestEdgeQLGroup(tb.QueryTestCase):
