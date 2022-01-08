@@ -2984,6 +2984,30 @@ def process_set_as_agg_expr_inner(
             name=name, args=args, agg_order=agg_sort, agg_filter=agg_filter,
             ser_safe=serialization_safe and all(x.ser_safe for x in args))
 
+        if for_group_by and not expr.impl_is_strict:
+            # Unacceptable hardcoding my ass.
+            # If we are doing this for a GROUP BY, and the function is not
+            # strict in its arguments, we are in trouble!
+
+            # The problem is that we don't have a way to filter the NULLs
+            # out in the subquery in general. The value could be
+            # computed *inside* the subquery, so we can't use an agg_filter,
+            # and we can't filter it inside the subquery because it gets
+            # executed separately for each row and collapses to NULL when
+            # it is empty!
+
+            # Fortunately I think that only array_agg has this property,
+            # so we can just handle that by popping the NULLs out.
+            # If other cases turn up, we could handle it by falling
+            # back to aggregate grouping.
+
+            # TODO: only do this when there might really be a null?
+            assert str(expr.func_shortname) == 'std::array_agg'
+            set_expr = pgast.FuncCall(
+                name=('array_remove',),
+                args=[set_expr, pgast.NullConstant()]
+            )
+
         if expr.error_on_null_result:
             set_expr = pgast.FuncCall(
                 name=('edgedb', 'raise_on_null'),

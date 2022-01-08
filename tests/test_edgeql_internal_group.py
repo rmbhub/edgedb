@@ -196,7 +196,6 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             }],
         )
 
-    @test.xfail('still broken -- nulls')
     async def test_edgeql_igroup_result_alias_01(self):
         await self.assert_query_result(
             r'''
@@ -230,7 +229,6 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             [{'count': 1, 'te': [True]}, {'count': 3, 'te': []}],
         )
 
-    @test.xfail('still broken -- nulls')
     async def test_edgeql_igroup_result_alias_02(self):
         await self.assert_query_result(
             r'''
@@ -863,7 +861,6 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             ],
         )
 
-    @test.xfail('still broken: extra nulls!')
     async def test_edgeql_igroup_by_multiple_04(self):
         # XXX: we are getting an extra null in one of the watchers!!
         await self.assert_query_result(
