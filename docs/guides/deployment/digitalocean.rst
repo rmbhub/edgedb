@@ -13,8 +13,10 @@ Prerequisites
 
 * DigitalOcean account
 * ``doctl`` CLI (`install <doclt-install_>`_)
+* ``jq`` (`install <jq_>`_)
 
 .. _doctl-install: https://docs.digitalocean.com/reference/doctl/how-to/install/
+.. _jq: https://stedolan.github.io/jq/
 
 
 Create a managed PostgreSQL instance
