@@ -865,7 +865,7 @@ class GroupStmt(Stmt):
     by: typing.List[qlast.GroupingElement]
     result: Set = EmptySet()  # type: ignore
     group_binding: Set = EmptySet()  # type: ignore
-    # group_path_id: PathId
+    grouping_binding: typing.Optional[Set] = None
 
 
 class MutatingStmt(Stmt):

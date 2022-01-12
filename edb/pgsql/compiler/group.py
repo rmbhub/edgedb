@@ -172,6 +172,28 @@ def compile_grouping_el(
     raise AssertionError('Unknown GroupingElement')
 
 
+def _compile_grouping_binding(
+        stmt: irast.GroupStmt, *,
+        ctx: context.CompilerContextLevel) -> None:
+    assert stmt.grouping_binding
+    grouprel = ctx.rel
+
+    args = [
+        pathctx.get_path_var(
+            grouprel, alias_set.path_id, aspect='value', env=ctx.env)
+        for alias_set in stmt.using.values()
+    ]
+    grouping_call = pgast.FuncCall(name=('grouping',), args=args)
+    # XXX: should there be a helper for this restarget thing
+    alias = ctx.env.aliases.get('grouping')
+    grouprel.target_list.append(
+        pgast.ResTarget(name=alias, val=grouping_call))
+    ref = pgast.ColumnRef(name=[alias], nullable=False)
+    pathctx._put_path_output_var(
+        grouprel, stmt.grouping_binding.path_id, 'value', ref,
+        env=ctx.env)
+
+
 def _compile_group(
         stmt: irast.GroupStmt, *,
         ctx: context.CompilerContextLevel,
@@ -282,6 +304,9 @@ def _compile_group(
                     flavor='packed', env=ctx.env
                 )
 
+        if stmt.grouping_binding:
+            _compile_grouping_binding(stmt, ctx=groupctx)
+
         grouprel.group_clause = [
             compile_grouping_el(el, stmt, ctx=groupctx) for el in stmt.by
         ]
@@ -303,7 +328,8 @@ def _compile_group(
 
     # Set up the hoisted aggregates and bindings to be found
     # in the group subquery.
-    for group_use in [*group_uses, *stmt.using.values()]:
+    for group_use in [
+            *group_uses, *stmt.using.values(), stmt.grouping_binding]:
         if group_use:
             pathctx.put_path_rvar(
                 query, group_use.path_id,

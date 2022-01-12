@@ -306,6 +306,13 @@ def compile_InternalGroupQuery(
         stmt.group_binding = _make_group_binding(
             subject_stype, expr.group_alias, ctx=sctx)
 
+        if expr.grouping_alias:
+            # XXX: this is wrong obviously
+            grouping_stype = ctx.env.schema.get(
+                'std::int64', type=s_types.Type)
+            stmt.grouping_binding = _make_group_binding(
+                grouping_stype, expr.grouping_alias, ctx=sctx)
+
         # compile the output
         # newscope because we don't want the result to get assigned the
         # same statement scope as the subject and elements, which we
@@ -316,6 +323,10 @@ def compile_InternalGroupQuery(
             )
             node = bctx.path_scope.find_descendant(stmt.group_binding.path_id)
             not_none(node).is_group = True
+            if stmt.grouping_binding:
+                pathctx.register_set_in_scope(
+                    stmt.grouping_binding, path_scope=bctx.path_scope, ctx=bctx
+                )
 
             stmt.result = compile_result_clause(
                 expr.result,
@@ -336,7 +347,7 @@ def compile_InternalGroupQuery(
 def compile_GroupQuery(
         expr: qlast.GroupQuery, *, ctx: context.ContextLevel) -> irast.Set:
     return dispatch.compile(
-        desugar_group.desugar_group(expr, ctx.aliases, no_grouping_field=True),
+        desugar_group.desugar_group(expr, ctx.aliases),
         ctx=ctx,
     )
 

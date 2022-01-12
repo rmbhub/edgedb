@@ -52,8 +52,6 @@ def make_free_object(els: Dict[str, qlast.Expr]) -> qlast.Shape:
 def desugar_group(
     node: qlast.GroupQuery,
     aliases: AliasGenerator,
-    *,
-    no_grouping_field: bool=False,
 ) -> qlast.InternalGroupQuery:
     assert not isinstance(node, qlast.InternalGroupQuery)
     alias_map: Dict[str, Tuple[str, qlast.Expr]] = {}
@@ -107,8 +105,6 @@ def desugar_group(
         'grouping': name_path(grouping_alias),
         'elements': name_path(g_alias),
     }
-    if no_grouping_field:
-        del output_dict['grouping']
     output_shape = make_free_object(output_dict)
 
     return qlast.InternalGroupQuery(
