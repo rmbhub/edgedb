@@ -236,6 +236,30 @@ def compile_ForQuery(
     return result
 
 
+def _make_group_binding(
+    stype: s_types.Type,
+    alias: str,
+    *,
+    ctx: context.ContextLevel,
+) -> irast.Set:
+    """Make a binding for one of the "dummy" bindings used in group"""
+    binding_type = schemactx.derive_view(
+        stype,
+        derived_name=s_name.QualName('__derived__', alias),
+        preserve_shape=True, ctx=ctx)  # ???
+
+    binding_set = setgen.class_set(binding_type, ctx=ctx)
+
+    name = s_name.UnqualName(alias)
+    ctx.aliased_views[name] = binding_type
+    ctx.view_sets[binding_type] = binding_set
+    ctx.path_scope_map[binding_set] = context.ScopeInfo(
+        path_scope=ctx.path_scope, binding_kind=irast.BindingKind.For
+    )
+
+    return binding_set
+
+
 @dispatch.compile.register(qlast.InternalGroupQuery)
 def compile_InternalGroupQuery(
     expr: qlast.InternalGroupQuery, *, ctx: context.ContextLevel
@@ -278,23 +302,9 @@ def compile_InternalGroupQuery(
                 binding.context = using_entry.expr.context
                 stmt.using[using_entry.alias] = binding
 
-        # XXX: need to do binding stuff for the aliases...
-        # we need to create a new type for it, of course.
-
         subject_stype = setgen.get_set_type(stmt.subject, ctx=sctx)
-        group_binding_type = schemactx.derive_view(
-            subject_stype,
-            derived_name=s_name.QualName('__derived__', expr.group_alias),
-            preserve_shape=True, ctx=ctx)  # ???
-
-        stmt.group_binding = setgen.class_set(group_binding_type, ctx=sctx)
-
-        group_name = s_name.UnqualName(expr.group_alias)
-        sctx.aliased_views[group_name] = group_binding_type
-        sctx.view_sets[group_binding_type] = stmt.group_binding
-        sctx.path_scope_map[stmt.group_binding] = context.ScopeInfo(
-            path_scope=sctx.path_scope, binding_kind=irast.BindingKind.For
-        )
+        stmt.group_binding = _make_group_binding(
+            subject_stype, expr.group_alias, ctx=sctx)
 
         # compile the output
         # newscope because we don't want the result to get assigned the
