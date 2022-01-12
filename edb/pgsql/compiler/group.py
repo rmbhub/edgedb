@@ -270,8 +270,6 @@ def _compile_group(
     with ctx.subrel() as groupctx:
         grouprel = groupctx.rel
 
-        # breakpoint()
-
         # First compile the actual subject
         # subrel *solely* for path id map reasons
         with groupctx.subrel() as subjctx:

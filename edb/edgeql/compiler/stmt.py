@@ -286,6 +286,7 @@ def compile_InternalGroupQuery(
         # compile the USING
         assert expr.using is not None
 
+        # XXX: should they be bound in each other's scope?
         for using_entry in expr.using:
             with sctx.new() as scopectx:
                 if scopectx.expr_exposed:
@@ -324,6 +325,11 @@ def compile_InternalGroupQuery(
             )
             node = bctx.path_scope.find_descendant(stmt.group_binding.path_id)
             not_none(node).is_group = True
+            for using_value in stmt.using.values():
+                pathctx.register_set_in_scope(
+                    using_value, path_scope=bctx.path_scope, ctx=bctx
+                )
+
             if stmt.grouping_binding:
                 pathctx.register_set_in_scope(
                     stmt.grouping_binding, path_scope=bctx.path_scope, ctx=bctx

@@ -1376,6 +1376,38 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             tb.bag([{"n": 2}, {"n": 2}, {"n": 2}, {"n": 3}]),
         )
 
+    async def test_edgeql_using_rebind_01(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card
+                USING e := .element
+                BY e
+                INTO g
+                UNION
+                (WITH z := e, SELECT z);
+            """,
+            {"Water", "Fire", "Earth", "Air"}
+        )
+
+    @test.xfail("namespaces!")
+    async def test_edgeql_using_rebind_02(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card
+                USING e := .element
+                BY e
+                INTO g
+                UNION
+                { key := e } {z := .key};
+
+            """,
+            tb.bag(
+                [{"z": "Fire"}, {"z": "Water"}, {"z": "Earth"}, {"z": "Air"}]
+            )
+        )
+
     async def test_edgeql_igroup_filter_01(self):
         await self.assert_query_result(
             r"""
