@@ -62,6 +62,7 @@ class ExprType(enum.IntEnum):
     Insert = enum.auto()
     Update = enum.auto()
     Delete = enum.auto()
+    Group = enum.auto()
 
     def is_update(self) -> bool:
         return self == ExprType.Update

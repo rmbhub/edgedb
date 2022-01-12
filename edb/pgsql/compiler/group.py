@@ -64,6 +64,18 @@ class FindAggregatingUses(ast_visitor.NodeVisitor):
         # gets flagged
         # SHOULD WE SKIP THE BINDINGS???
 
+        old = self.aggregate
+
+        # Can't handle ORDER/LIMIT/OFFSET which operate on the whole
+        # set
+        # XXX: but often we probably could with arguments to the
+        # aggregates, as long as the argument to the aggregate is just
+        # a reference
+        if isinstance(stmt, irast.SelectStmt) and (
+            stmt.orderby or stmt.limit or stmt.offset
+        ):
+            self.aggregate = None
+
         self.visit(stmt.bindings)
         if stmt.iterator_stmt:
             self.visit(stmt.iterator_stmt)
@@ -71,7 +83,11 @@ class FindAggregatingUses(ast_visitor.NodeVisitor):
             self.visit(stmt.subject)
         self.visit(stmt.result)
 
-        return self.generic_visit(stmt)
+        res = self.generic_visit(stmt)
+
+        self.aggregate = old
+
+        return res
 
     def visit_Set(self, node: irast.Set) -> None:
         if node.path_id in self.to_skip:
@@ -84,25 +100,33 @@ class FindAggregatingUses(ast_visitor.NodeVisitor):
         self.visit(node.rptr)
         self.visit(node.shape)
 
-        if isinstance(node.expr, irast.FunctionCall):
+        if isinstance(node.expr, irast.Call):
             self.process_call(node.expr, node)
         else:
             self.visit(node.expr)
         # if not node.rptr:
         #     self.visit(node.expr)
 
-    def process_call(
-            self, node: irast.FunctionCall, ir_set: irast.Set) -> None:
+    def process_call(self, node: irast.Call, ir_set: irast.Set) -> None:
         # It needs to be backed by an actual SQL function and must
         # not return SET OF
-        ok = (
-            node.typemod != qltypes.TypeModifier.SetOfType
+        returns_set = node.typemod == qltypes.TypeModifier.SetOfType
+        calls_sql_func = (
+            isinstance(node, irast.FunctionCall)
             and node.func_sql_function
         )
         for arg, typemod in zip(node.args, node.params_typemods):
             old = self.aggregate
-            if (
-                ok
+            # If this *returns* a set, it is going to mess things up since
+            # the operation can't actually run on multiple things...
+
+            # TODO: we would like to do better in some cases with
+            # DISTINCT and the like where there are built in features
+            # to do it in a GROUP
+            if returns_set:
+                self.aggregate = None
+            elif (
+                calls_sql_func
                 and typemod == qltypes.TypeModifier.SetOfType
             ):
                 self.aggregate = ir_set

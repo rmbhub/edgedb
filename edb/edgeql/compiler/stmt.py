@@ -256,6 +256,7 @@ def compile_InternalGroupQuery(
             # view_scls=ctx.view_scls,
             # view_rptr=ctx.view_rptr,
             result_alias=expr.subject_alias,
+            exprtype=s_types.ExprType.Group,
             ctx=sctx)
 
         # compile the USING
@@ -1089,6 +1090,7 @@ def compile_result_clause(
         view_scls: Optional[s_types.Type]=None,
         view_rptr: Optional[context.ViewRPtr]=None,
         view_name: Optional[s_name.QualName]=None,
+        exprtype: s_types.ExprType = s_types.ExprType.Select,
         result_alias: Optional[str]=None,
         forward_rptr: bool=False,
         ctx: context.ContextLevel) -> irast.Set:
@@ -1162,6 +1164,7 @@ def compile_result_clause(
             result_alias=result_alias,
             view_scls=view_scls,
             allow_select_shape_inject=False,
+            exprtype=exprtype,
             compile_views=ctx.stmt is ctx.toplevel_stmt,
             ctx=sctx,
             parser_context=result.context)
@@ -1236,6 +1239,7 @@ def compile_query_subject(
                 and not expr_stype.is_view(ctx.env.schema)
             )
             or exprtype.is_mutation()
+            or exprtype == s_types.ExprType.Group
         )
         and shape is None
     ):
