@@ -307,9 +307,10 @@ def compile_InternalGroupQuery(
             subject_stype, expr.group_alias, ctx=sctx)
 
         if expr.grouping_alias:
-            # XXX: this is wrong obviously
-            grouping_stype = ctx.env.schema.get(
-                'std::int64', type=s_types.Type)
+            ctx.env.schema, grouping_stype = s_types.Array.create(
+                ctx.env.schema,
+                element_type=ctx.env.schema.get('std::str', type=s_types.Type)
+            )
             stmt.grouping_binding = _make_group_binding(
                 grouping_stype, expr.grouping_alias, ctx=sctx)
 

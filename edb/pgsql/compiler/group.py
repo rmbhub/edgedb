@@ -172,26 +172,81 @@ def compile_grouping_el(
     raise AssertionError('Unknown GroupingElement')
 
 
-def _compile_grouping_binding(
+def _compile_grouping_value(
         stmt: irast.GroupStmt, *,
-        ctx: context.CompilerContextLevel) -> None:
+        ctx: context.CompilerContextLevel) -> pgast.BaseExpr:
     assert stmt.grouping_binding
     grouprel = ctx.rel
+
+    # XXX: omit the ones that aren't really grouped on
+    if len(stmt.using) == 1:
+        return pgast.ArrayExpr(
+            elements=[
+                pgast.StringConstant(val=list(stmt.using)[0].split('~')[0])]
+        )
 
     args = [
         pathctx.get_path_var(
             grouprel, alias_set.path_id, aspect='value', env=ctx.env)
         for alias_set in stmt.using.values()
     ]
+
+    grouping_alias = ctx.env.aliases.get('g')
     grouping_call = pgast.FuncCall(name=('grouping',), args=args)
-    # XXX: should there be a helper for this restarget thing
-    alias = ctx.env.aliases.get('grouping')
-    grouprel.target_list.append(
-        pgast.ResTarget(name=alias, val=grouping_call))
-    ref = pgast.ColumnRef(name=[alias], nullable=False)
-    pathctx._put_path_output_var(
-        grouprel, stmt.grouping_binding.path_id, 'value', ref,
-        env=ctx.env)
+    subq = pgast.SelectStmt(
+        target_list=[
+            pgast.ResTarget(name=grouping_alias, val=grouping_call),
+        ]
+    )
+    q = pgast.SelectStmt(
+        from_clause=[pgast.RangeSubselect(
+            subquery=subq,
+            alias=pgast.Alias(aliasname=ctx.env.aliases.get())
+        )]
+    )
+
+    grouping_ref = pgast.ColumnRef(name=(grouping_alias,))
+
+    els: List[pgast.BaseExpr] = []
+    for i, name in enumerate(stmt.using):
+        name = name.split('~')[0]  # ...
+        mask = 1 << (len(stmt.using) - i - 1)
+        # (CASE (e & 2) WHEN 0 THEN 'a' ELSE NULL END)
+
+        els.append(pgast.CaseExpr(
+            arg=pgast.Expr(
+                kind=pgast.ExprKind.OP,
+                name='&',
+                lexpr=grouping_ref,
+                rexpr=pgast.LiteralExpr(expr=str(mask))
+            ),
+            args=[
+                pgast.CaseWhen(
+                    expr=pgast.LiteralExpr(expr='0'),
+                    result=pgast.StringConstant(val=name)
+                )
+            ],
+            defresult=pgast.NullConstant()
+        ))
+
+    val = pgast.FuncCall(
+        name=('array_remove',),
+        args=[pgast.ArrayExpr(elements=els), pgast.NullConstant()]
+    )
+
+    q.target_list.append(pgast.ResTarget(val=val))
+
+    return q
+
+
+def _compile_grouping_binding(
+        stmt: irast.GroupStmt, *,
+        ctx: context.CompilerContextLevel) -> None:
+    assert stmt.grouping_binding
+    pathctx.put_path_var(
+        ctx.rel, stmt.grouping_binding.path_id,
+        _compile_grouping_value(stmt, ctx=ctx),
+        aspect='value', env=ctx.env)
 
 
 def _compile_group(
