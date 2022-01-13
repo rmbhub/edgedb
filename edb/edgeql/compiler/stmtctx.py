@@ -344,7 +344,7 @@ def _try_namespace_fix(
     if obj.path_id is None:
         return
     for prefix in obj.path_id.iter_prefixes():
-        replacement = scope.find_visible(prefix)
+        replacement = scope.find_visible(prefix, allow_group=True)
         if (
             replacement and replacement.path_id
             and replacement.path_id.namespace != obj.path_id.namespace

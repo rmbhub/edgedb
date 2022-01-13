@@ -1486,7 +1486,12 @@ def _get_computable_ctx(
                 frozenset(pending_pid_ns))
 
             subns = set(pending_pid_ns)
-            subns.add(ctx.aliases.get('ns'))
+            # XXX: Is this right???  ... This was a fix for some group
+            # stuff, which makes it seem dodgy.
+            # lol, still doesn't work if you do it *twice*
+            is_subscope = qlctx.path_scope in ctx.path_scope.ancestors
+            if not is_subscope:
+                subns.add(ctx.aliases.get('ns'))
 
             # Include the namespace from the source in the namespace
             # we compile under. This helps make sure the remapping

@@ -1390,7 +1390,6 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
             {"Water", "Fire", "Earth", "Air"}
         )
 
-    @test.xfail("namespaces!")
     async def test_edgeql_using_rebind_02(self):
         await self.assert_query_result(
             r"""
@@ -1401,6 +1400,24 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
                 INTO g
                 UNION
                 { key := e } {z := .key};
+
+            """,
+            tb.bag(
+                [{"z": "Fire"}, {"z": "Water"}, {"z": "Earth"}, {"z": "Air"}]
+            )
+        )
+
+    @test.xfail('column not in GROUP BY')
+    async def test_edgeql_using_rebind_03(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card
+                USING e := .element
+                BY e
+                INTO g
+                UNION
+                { key := { e := e } } {z := .key.e};
 
             """,
             tb.bag(
@@ -1462,5 +1479,50 @@ class TestEdgeQLGroupInternal(tb.QueryTestCase):
                     {"name": "Imp"}, {"name": "Dragon"}])},
                 {"key": {"e": "Earth"}, "z": tb.bag([
                     {"name": "Dwarf"}, {"name": "Golem"}])}
+            ])
+        )
+
+    async def test_edgeql_igroup_reshape_01(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card
+                USING e := .element
+                BY e
+                INTO g
+                UNION
+                { key := e, elements := g } {
+                    element := .key,
+                    avg_cost := count(.elements),
+                };
+            """,
+            tb.bag([
+                {"avg_cost": 3, "element": "Air"},
+                {"avg_cost": 2, "element": "Earth"},
+                {"avg_cost": 2, "element": "Fire"},
+                {"avg_cost": 2, "element": "Water"},
+            ])
+        )
+
+    @test.xfail('Argh, the internal shape for the key breaks it')
+    async def test_edgeql_igroup_reshape_02(self):
+        await self.assert_query_result(
+            r"""
+                WITH MODULE cards
+                DETACHED GROUP Card
+                USING e := .element
+                BY e
+                INTO g
+                UNION
+                { key := { e := e }, elements := g } {
+                    element := .key.e,
+                    avg_cost := count(.elements),
+                };
+            """,
+            tb.bag([
+                {"avg_cost": 3, "element": "Air"},
+                {"avg_cost": 2, "element": "Earth"},
+                {"avg_cost": 2, "element": "Fire"},
+                {"avg_cost": 2, "element": "Water"},
             ])
         )
